@@ -1,0 +1,29 @@
+{
+  "name": "twosoulperfume",
+  "version": "1.0.0",
+  "description": "A production-ready React storefront and admin panel for CommerceCore.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alokchakervarty/TwoSoulPerfume.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/alokchakervarty/TwoSoulPerfume/issues"
+  },
+  "homepage": "https://github.com/alokchakervarty/TwoSoulPerfume#readme",
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.0.4",
+    "lucide-react": "^1.25.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "vite": "^8.1.5"
+  }
+}

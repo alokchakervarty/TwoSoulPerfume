@@ -353,10 +353,13 @@ img {
   aspect-ratio: 1 / 1.12;
   background: #efe7d8;
   border: 0;
+  color: inherit;
+  cursor: pointer;
   display: block;
   overflow: hidden;
   padding: 0;
   position: relative;
+  text-decoration: none;
   width: 100%;
 }
 

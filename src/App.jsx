@@ -11,8 +11,24 @@ import Storefront from "./components/Storefront";
 import { emptyCart } from "./constants";
 import { normalizeProduct } from "./utils/products";
 
+function getInitialView() {
+  if (typeof window === "undefined") return "store";
+
+  const hash = window.location.hash;
+  if (hash.startsWith("#/product/")) {
+    const productId = decodeURIComponent(hash.replace("#/product/", ""));
+    return productId ? `product:${productId}` : "store";
+  }
+
+  return "store";
+}
+
+function getProductHash(productId) {
+  return `#/product/${encodeURIComponent(productId)}`;
+}
+
 export default function App() {
-  const [view, setView] = useState("store");
+  const [view, setView] = useState(getInitialView);
   const [auth, setAuth] = useState(getSavedAuth());
   const [productsState, setProductsState] = useState({
     items: [],
@@ -62,6 +78,44 @@ export default function App() {
   useEffect(() => {
     loadCatalog();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    function handleHashChange() {
+      const hash = window.location.hash;
+      if (hash.startsWith("#/product/")) {
+        const productId = decodeURIComponent(hash.replace("#/product/", ""));
+        if (productId) {
+          setView(`product:${productId}`);
+        }
+        return;
+      }
+
+      setView("store");
+    }
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (view === "store") {
+      if (window.location.hash) {
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+      }
+      return;
+    }
+
+    if (view.startsWith("product:")) {
+      const nextHash = getProductHash(view.split(":")[1]);
+      if (window.location.hash !== nextHash) {
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${nextHash}`);
+      }
+    }
+  }, [view]);
 
   useEffect(() => {
     loadPrivateData();

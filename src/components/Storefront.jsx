@@ -74,17 +74,34 @@ export default function Storefront({
       <section className="grid">
         {products.map((product) => (
           <article className="product-card" key={product.id}>
-            <button type="button" className="image-button" onClick={() => onProduct(product)}>
+            <a
+              className="image-button"
+              href={`#/product/${product.id}`}
+              onClick={(event) => {
+                event.preventDefault();
+                onProduct(product);
+              }}
+              aria-label={`View ${product.name}`}
+            >
               <img src={product.image} alt={product.name} />
               {product.mrp > product.price && (
                 <span>
                   {Math.round(((product.mrp - product.price) / product.mrp) * 100)}% OFF
                 </span>
               )}
-            </button>
+            </a>
             <div className="product-info">
               <p>{product.categoryName || "Perfume"}</p>
-              <h3>{product.name}</h3>
+              <a
+                className="product-title-link"
+                href={`#/product/${product.id}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onProduct(product);
+                }}
+              >
+                <h3>{product.name}</h3>
+              </a>
               <div className="rating">
                 <Star size={15} fill="currentColor" /> {product.averageRating || "4.7"} | (
                 {product.reviewCount || 0})

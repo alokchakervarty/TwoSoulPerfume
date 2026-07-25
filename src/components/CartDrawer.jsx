@@ -8,6 +8,7 @@ export default function CartDrawer({
   auth,
   onClose,
   onLogin,
+  onCheckout,
   onChanged,
   onNotice,
 }) {
@@ -20,6 +21,36 @@ export default function CartDrawer({
     } catch (error) {
       onNotice(`Cart update failed: ${error.message}`);
     }
+  }
+
+  function getItemQuantity(item) {
+    return Number(item.quantity ?? 1);
+  }
+
+  function getItemUnitPrice(item) {
+    const quantity = getItemQuantity(item);
+    const priceValue = item.price ?? item.unitPrice;
+    if (priceValue != null) return Number(priceValue);
+    if (item.lineTotal != null && quantity) {
+      return Number(item.lineTotal) / quantity;
+    }
+    return 0;
+  }
+
+  function handleCheckout() {
+    if (!items.length) return;
+    if (!auth) {
+      onNotice("Please log in before proceeding to checkout.");
+      onLogin?.();
+      return;
+    }
+    if (onCheckout) {
+      onCheckout();
+      return;
+    }
+    onNotice(
+      "Please add a saved shipping address in CommerceCore before checkout."
+    );
   }
 
   return (
@@ -39,20 +70,25 @@ export default function CartDrawer({
         </div>
       )}
       {auth && !items.length && <div className="state small">Your cart is empty.</div>}
-      {items.map((item) => (
-        <div className="cart-line" key={item.id || item.cartItemId}>
-          <img src={validImage(item.imageUrl)} alt={item.productName || "Cart item"} />
-          <div>
-            <strong>{item.productName || item.name || "Product"}</strong>
-            <span>
-              {currency(item.lineTotal || item.price)} x {item.quantity || 1}
-            </span>
+      {items.map((item) => {
+        const quantity = getItemQuantity(item);
+        const unitPrice = getItemUnitPrice(item);
+
+        return (
+          <div className="cart-line" key={item.id || item.cartItemId}>
+            <img src={validImage(item.imageUrl)} alt={item.productName || "Cart item"} />
+            <div>
+              <strong>{item.productName || item.name || "Product"}</strong>
+              <span>
+                {currency(unitPrice)} x {quantity}
+              </span>
+            </div>
+            <button className="icon-button" type="button" onClick={() => remove(item)}>
+              <Trash2 size={18} />
+            </button>
           </div>
-          <button className="icon-button" type="button" onClick={() => remove(item)}>
-            <Trash2 size={18} />
-          </button>
-        </div>
-      ))}
+        );
+      })}
       <div className="drawer-total">
         <span>Subtotal</span>
         <strong>{currency(cart.subTotal)}</strong>
@@ -61,7 +97,7 @@ export default function CartDrawer({
         className="primary full"
         disabled={!items.length}
         type="button"
-        onClick={() => onNotice("Checkout form needs saved address IDs from CommerceCore.")}
+        onClick={handleCheckout}
       >
         Checkout
       </button>

@@ -33,6 +33,57 @@ img {
   max-width: 100%;
 }
 
+@keyframes heroFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes heroFloat {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.012);
+  }
+}
+
+@keyframes heroSweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-220%) translateY(26px) scale(0.96) rotate(10deg);
+  }
+  12% {
+    opacity: 0.08;
+  }
+  24% {
+    opacity: 0.18;
+    transform: translateX(-24%) translateY(6px) scale(1.01) rotate(2deg);
+  }
+  42% {
+    opacity: 0.3;
+    transform: translateX(-4%) translateY(2px) scale(1.01) rotate(0deg);
+  }
+  58% {
+    opacity: 0.24;
+    transform: translateX(24%) translateY(-4px) scale(1.03) rotate(-4deg);
+  }
+  78% {
+    opacity: 0.1;
+    transform: translateX(92%) translateY(-16px) scale(1.05) rotate(-8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(220%) translateY(-28px) scale(1.1) rotate(-12deg);
+  }
+}
+
 .app {
   min-height: 100vh;
 }
@@ -158,12 +209,28 @@ img {
 }
 
 .hero img {
+  animation: heroFloat 12s ease-in-out infinite;
   filter: saturate(0.92) contrast(1.04);
   height: 100%;
   inset: 0;
   object-fit: cover;
   position: absolute;
   width: 100%;
+}
+
+.hero::before {
+  background: radial-gradient(circle at 30% 40%, rgba(255,255,255,0.96), rgba(255,255,255,0.46) 24%, rgba(255,255,255,0.2) 46%, rgba(255,255,255,0) 72%);
+  border-radius: 40% 60% 65% 35%;
+  content: "";
+  inset: -18% auto auto -12%;
+  height: 158%;
+  position: absolute;
+  transform: translateX(-220%) translateY(26px) scale(0.96) rotate(10deg);
+  width: 90%;
+  z-index: 1;
+  animation: heroSweep 14s linear infinite;
+  filter: blur(6px);
+  opacity: 0.95;
 }
 
 .hero::after {
@@ -174,13 +241,14 @@ img {
 }
 
 .hero-copy {
+  animation: heroFadeIn 1.2s ease-out both;
   color: #fff;
   margin: 0 auto;
   max-width: 1240px;
   padding: 72px 22px 116px;
   position: relative;
   width: 100%;
-  z-index: 1;
+  z-index: 2;
 }
 
 .hero-copy p,
@@ -196,11 +264,11 @@ img {
 }
 
 .hero-copy h1 {
-  font-size: clamp(48px, 8vw, 104px);
+  font-size: clamp(42px, 7vw, 88px);
   letter-spacing: 0;
   line-height: 0.95;
   margin: 0;
-  max-width: 740px;
+  max-width: 700px;
 }
 
 .hero-copy span {
@@ -222,6 +290,7 @@ img {
   justify-content: center;
   min-height: 48px;
   padding: 0 20px;
+  transition: transform 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
 }
 
 .hero-copy button,
@@ -233,6 +302,13 @@ img {
 .hero-copy button {
   background: #fff;
   color: #171717;
+}
+
+.hero-copy button:hover,
+.primary:hover,
+.secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(23, 23, 23, 0.16);
 }
 
 .secondary {

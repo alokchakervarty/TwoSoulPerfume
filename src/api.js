@@ -3,6 +3,27 @@ const API_BASE_URL =
 const STORE_ID = import.meta.env.VITE_STORE_ID || "";
 
 const TOKEN_KEY = "twosoul.auth";
+const GUEST_ID_KEY = "twosoul.guestId";
+
+function getGuestId() {
+  if (typeof window === "undefined") return "";
+
+  try {
+    const savedGuestId = window.localStorage.getItem(GUEST_ID_KEY);
+    if (savedGuestId) return savedGuestId;
+  } catch {}
+
+  const guestId =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `guest-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  try {
+    window.localStorage.setItem(GUEST_ID_KEY, guestId);
+  } catch {}
+
+  return guestId;
+}
 
 export function getSavedAuth() {
   try {
@@ -26,10 +47,12 @@ function authHeader() {
 }
 
 async function request(path, options = {}) {
+  const guestId = getGuestId();
   const headers = {
     "Content-Type": "application/json",
     ...authHeader(),
     ...(STORE_ID ? { "X-Store-Id": STORE_ID } : {}),
+    ...(guestId ? { "X-Guest-Id": guestId } : {}),
     ...options.headers,
   };
 

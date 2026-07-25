@@ -122,13 +122,7 @@ export default function App() {
   }, [auth?.accessToken]);
 
   async function addProductToCart(product) {
-    if (!auth) {
-      setView("login");
-      setNotice("Login with email OTP to add products to your cart.");
-      return;
-    }
-
-    if (!product.variantId) {
+    if (!product?.variantId) {
       setNotice("This product has no active variant yet.");
       return;
     }
@@ -155,6 +149,18 @@ export default function App() {
     setCart(emptyCart);
     setOrders({ items: [] });
     setView("store");
+  }
+
+  function handleCheckout() {
+    if (!auth) {
+      setNotice("Please log in before proceeding to checkout.");
+      setView("login");
+      return;
+    }
+
+    setNotice(
+      "You are logged in. Add a saved shipping address in CommerceCore to complete checkout."
+    );
   }
 
   function refreshAll() {
@@ -225,6 +231,10 @@ export default function App() {
         onLogin={() => {
           setDrawerOpen(false);
           setView("login");
+        }}
+        onCheckout={() => {
+          setDrawerOpen(false);
+          handleCheckout();
         }}
         onChanged={setCart}
         onNotice={setNotice}

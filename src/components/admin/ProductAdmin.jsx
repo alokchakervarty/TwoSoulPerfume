@@ -11,6 +11,7 @@ const initialProductForm = {
   basePrice: "",
   compareAtPrice: "",
   costPrice: "",
+  initialStock: "",
   trackInventory: true,
   categoryId: "",
   brandId: "",
@@ -35,6 +36,7 @@ export default function ProductAdmin({ products, categories, onRefresh, onNotice
         basePrice: Number(form.basePrice),
         compareAtPrice: form.compareAtPrice ? Number(form.compareAtPrice) : null,
         costPrice: form.costPrice ? Number(form.costPrice) : null,
+        initialStock: form.initialStock ? Number(form.initialStock) : 0,
         brandId: form.brandId || null,
         imageUrls: form.imageUrls
           ? form.imageUrls.split(",").map((url) => url.trim())
@@ -89,6 +91,13 @@ export default function ProductAdmin({ products, categories, onRefresh, onNotice
             onChange={(event) => setForm({ ...form, compareAtPrice: event.target.value })}
           />
         </div>
+        <input
+          placeholder="Inventory quantity"
+          type="number"
+          min="0"
+          value={form.initialStock}
+          onChange={(event) => setForm({ ...form, initialStock: event.target.value })}
+        />
         <select
           value={form.categoryId}
           required

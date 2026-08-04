@@ -11,7 +11,7 @@ const initialForm = {
   postalCode: "",
   countryId: null,
   isDefaultShipping: true,
-  type: 2,
+  type: "2",
 };
 
 export default function AddressForm({ onCreated, onCancel }) {
@@ -35,7 +35,7 @@ export default function AddressForm({ onCreated, onCancel }) {
         postalCode: form.postalCode,
         ...(form.countryId ? { countryId: form.countryId } : {}),
         isDefaultShipping: form.isDefaultShipping,
-        type: form.type,
+        type: String(form.type),
       };
 
       const address = await api.createAddress(payload);

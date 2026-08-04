@@ -7,7 +7,7 @@ export default function OrdersPanel({ orders, onRefresh }) {
       <div className="panel-head">
         <div>
           <h1>My Orders</h1>
-          <p>CommerceCore order history</p>
+          <p>Your TwoSoul order history</p>
         </div>
         <button className="secondary" type="button" onClick={onRefresh}>
           Refresh

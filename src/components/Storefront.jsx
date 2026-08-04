@@ -1,4 +1,4 @@
-import { ChevronRight, Search, ShoppingBag, Sparkles, Star } from "lucide-react";
+import { Search, ShoppingBag, Sparkles, Star } from "lucide-react";
 import { categoriesFallback, fallbackImage } from "../constants";
 import { currency } from "../utils/format";
 
@@ -16,24 +16,32 @@ export default function Storefront({
     ? categories
     : categoriesFallback.map((name) => ({ name }));
 
+  const highlights = [
+    { label: "Scent Longevity", value: "12+ Hours" },
+    { label: "Curated Bottles", value: "Premium Grade" },
+    { label: "Trusted Delivery", value: "Pan-India" },
+  ];
+
   return (
     <main>
-      <section className="hero">
-        <img src="/images/products/BlackCitrusImage.png" alt="Luxury perfume bottles" />
+      <section className="hero reveal">
+        <img src="/images/products/BlackCitrusImageCenter.png" alt="Luxury perfume bottles" />
         <div className="hero-copy">
-          <p>Launch Offer</p>
           <h1>TwoSoul Perfumes</h1>
-          <span>Signature scents, elevated gifting, and long-lasting daily wear.</span>
-          <button
-            type="button"
-            onClick={() => document.getElementById("products")?.scrollIntoView()}
-          >
-            Shop Collection <ChevronRight size={18} />
-          </button>
+          <span>Signature scents for elevated gifting and long-lasting daily wear.</span>
         </div>
       </section>
 
-      <section className="category-strip" aria-label="Featured categories">
+      <section className="story-band reveal" aria-label="Brand highlights">
+        {highlights.map((item) => (
+          <article key={item.label} className="story-tile">
+            <p>{item.label}</p>
+            <strong>{item.value}</strong>
+          </article>
+        ))}
+      </section>
+
+      <section className="category-strip reveal" aria-label="Featured categories">
         {displayCategories.slice(0, 8).map((category) => (
           <button
             key={category.id || category.name}
@@ -46,10 +54,10 @@ export default function Storefront({
         ))}
       </section>
 
-      <section className="toolbar" id="products">
+      <section className="toolbar reveal" id="products">
         <div>
           <h2>Bestsellers</h2>
-          <p>{products.length} products ready from CommerceCore</p>
+          <p>{products.length} signature scents ready to shop</p>
         </div>
         <label className="search">
           <Search size={18} />
@@ -71,9 +79,9 @@ export default function Storefront({
       )}
       {!loading && !products.length && <div className="state">No products found.</div>}
 
-      <section className="grid">
-        {products.map((product) => (
-          <article className="product-card" key={product.id}>
+      <section className="grid reveal">
+        {products.map((product, index) => (
+          <article className="product-card" style={{ "--delay": `${index * 60}ms` }} key={product.id}>
             <a
               className="image-button"
               href={`#/product/${product.id}`}

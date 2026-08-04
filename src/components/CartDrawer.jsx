@@ -6,13 +6,17 @@ export default function CartDrawer({
   open,
   cart,
   auth,
+  addressesCount,
+  loadingAddresses,
   onClose,
   onLogin,
+  onManageAddress,
   onCheckout,
   onChanged,
   onNotice,
 }) {
   const items = cart.items || [];
+  const hasAddresses = Number(addressesCount || 0) > 0;
 
   async function remove(item) {
     try {
@@ -49,8 +53,14 @@ export default function CartDrawer({
       return;
     }
     onNotice(
-      "Please add a saved shipping address in CommerceCore before checkout."
+      "Please add a saved shipping address before checkout."
     );
+  }
+
+  function checkoutLabel() {
+    if (!auth) return "Login to Checkout";
+    if (!hasAddresses) return "Add Shipping Address";
+    return "Checkout Securely";
   }
 
   return (
@@ -63,11 +73,27 @@ export default function CartDrawer({
       </div>
       {!auth && (
         <div className="state small">
-          Login to sync your CommerceCore cart.
+          Login to sync your TwoSoul cart.
           <button className="primary full" type="button" onClick={onLogin}>
             Login with OTP
           </button>
         </div>
+      )}
+      {auth && (
+        <section className="checkout-state">
+          <h3>Checkout Readiness</h3>
+          <p>
+            Login: <strong>{auth ? "Done" : "Pending"}</strong>
+          </p>
+          <p>
+            Address: <strong>{loadingAddresses ? "Loading..." : hasAddresses ? "Ready" : "Missing"}</strong>
+          </p>
+          {!hasAddresses && !loadingAddresses && (
+            <button className="secondary full" type="button" onClick={onManageAddress}>
+              Manage Addresses
+            </button>
+          )}
+        </section>
       )}
       {auth && !items.length && <div className="state small">Your cart is empty.</div>}
       {items.map((item) => {
@@ -99,7 +125,7 @@ export default function CartDrawer({
         type="button"
         onClick={handleCheckout}
       >
-        Checkout
+        {checkoutLabel()}
       </button>
     </aside>
   );

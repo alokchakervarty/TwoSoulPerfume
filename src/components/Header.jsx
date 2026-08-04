@@ -13,6 +13,7 @@ export default function Header({
   const [mobileOpen, setMobileOpen] = useState(false);
   const nav = [
     ["store", "Shop All"],
+    ...(auth ? [["account", "Account"]] : []),
     ["orders", "Orders"],
     ...(isAdmin ? [["admin", "Admin"]] : []),
   ];
@@ -29,17 +30,31 @@ export default function Header({
           <Menu size={22} />
         </button>
         <button className="brand" type="button" onClick={() => onNavigate("store")}>
-          <span className="brand-mark">TS</span>
-          <span>TwoSoul</span>
+          <img
+            className="brand-logo"
+            src="/images/brand/twosoul-logo.svg"
+            alt="TwoSoul logo"
+          />
+          <span className="brand-text">TwoSoul</span>
         </button>
+        {mobileOpen && (
+          <button
+            className="nav-scrim mobile-only"
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
         <div className={`nav-links ${mobileOpen ? "open" : ""}`}>
           <button
             className="icon-button mobile-only close"
             type="button"
+            aria-label="Close menu"
             onClick={() => setMobileOpen(false)}
           >
             <X size={22} />
           </button>
+          <p className="mobile-menu-title">Menu</p>
           {nav.map(([target, label]) => (
             <button
               key={target}

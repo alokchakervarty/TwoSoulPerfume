@@ -1,9 +1,8 @@
-import { ShoppingBag, Star } from "lucide-react";
+import { ShieldCheck, ShoppingBag, Sparkles, Star, Truck } from "lucide-react";
 import { currency } from "../utils/format";
+
 export default function ProductDetail({ product, onBack, onAdd }) {
-    
   if (!product) {
-  
     return (
       <main className="state">
         Product not found.{" "}
@@ -14,8 +13,14 @@ export default function ProductDetail({ product, onBack, onAdd }) {
     );
   }
 
+  const highlights = [
+    { icon: Sparkles, text: "Premium signature blend" },
+    { icon: Truck, text: "Fast dispatch across India" },
+    { icon: ShieldCheck, text: "Secure checkout and tracking" },
+  ];
+
   return (
-    <main className="detail">
+    <main className="detail reveal">
       <button className="text-button" type="button" onClick={onBack}>
         Back to shop
       </button>
@@ -25,6 +30,16 @@ export default function ProductDetail({ product, onBack, onAdd }) {
       <div className="detail-copy">
         <p>{product.brandName || "TwoSoul"}</p>
         <h1>{product.name}</h1>
+        <div className="detail-chips">
+          {highlights.map((item) => {
+            const Icon = item.icon;
+            return (
+              <span key={item.text} className="detail-chip">
+                <Icon size={14} /> {item.text}
+              </span>
+            );
+          })}
+        </div>
         <div className="rating">
           <Star size={16} fill="currentColor" /> {product.averageRating || "4.7"} rating
         </div>
@@ -37,9 +52,12 @@ export default function ProductDetail({ product, onBack, onAdd }) {
           <strong>{currency(product.price)}</strong>
           {product.mrp > product.price && <del>{currency(product.mrp)}</del>}
         </div>
-        <button className="primary" type="button" onClick={() => onAdd(product)}>
-          <ShoppingBag size={19} /> Add to Cart
-        </button>
+        <div className="detail-actions">
+          <button className="primary" type="button" onClick={() => onAdd(product)}>
+            <ShoppingBag size={19} /> Add to Cart
+          </button>
+          <span className="detail-note">Best worn daily and layered for evenings.</span>
+        </div>
       </div>
     </main>
   );

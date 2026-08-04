@@ -20,7 +20,7 @@ export default function AdminPanel({
   }
 
   return (
-    <main className="admin-layout">
+    <main className="admin-layout reveal">
       <aside className="admin-nav">
         <h2>Admin</h2>
         {[
@@ -40,6 +40,10 @@ export default function AdminPanel({
         ))}
       </aside>
       <section className="admin-content">
+        <div className="admin-heading">
+          <p>Control Center</p>
+          <h2>Store Operations</h2>
+        </div>
         {tab === "overview" && (
           <div className="metrics">
             <Metric label="Products" value={products.length} />

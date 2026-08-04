@@ -20,6 +20,10 @@ const initialProductForm = {
 
 export default function ProductAdmin({ products, categories, onRefresh, onNotice }) {
   const [form, setForm] = useState(initialProductForm);
+  const [isEditing, setIsEditing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
 
   useEffect(() => {
     if (!form.categoryId && categories[0]?.id) {
@@ -31,7 +35,7 @@ export default function ProductAdmin({ products, categories, onRefresh, onNotice
     event.preventDefault();
 
     try {
-      await api.createProduct({
+      const payload = {
         ...form,
         basePrice: Number(form.basePrice),
         compareAtPrice: form.compareAtPrice ? Number(form.compareAtPrice) : null,
@@ -39,21 +43,93 @@ export default function ProductAdmin({ products, categories, onRefresh, onNotice
         initialStock: form.initialStock ? Number(form.initialStock) : 0,
         brandId: form.brandId || null,
         imageUrls: form.imageUrls
-          ? form.imageUrls.split(",").map((url) => url.trim())
+          ? form.imageUrls.split(",").map((url) => url.trim()).filter(Boolean)
           : [],
-      });
-      onNotice("Product created.");
-      setForm(initialProductForm);
+      };
+
+      if (isEditing && form.id) {
+        await api.updateProduct(form.id, payload);
+        onNotice("Product updated.");
+      } else {
+        await api.createProduct(payload);
+        onNotice("Product created.");
+      }
+
+      resetForm();
       onRefresh();
     } catch (error) {
       onNotice(`Product save failed: ${error.message}`);
     }
   }
 
+  function resetForm() {
+    setForm(initialProductForm);
+    setIsEditing(false);
+    setSelectedImage(null);
+    setImagePreview("");
+  }
+
+  function startEdit(product) {
+    setIsEditing(true);
+    setForm({
+      ...initialProductForm,
+      ...product,
+      id: product.id,
+      categoryId: product.categoryId || "",
+      basePrice: product.price ?? "",
+      compareAtPrice: product.mrp ?? "",
+      initialStock: product.variants?.[0]?.availableStock ?? "",
+      imageUrls: (product.imageUrls || [product.image]).filter(Boolean).join(", "),
+    });
+    setImagePreview(product.image || "");
+  }
+
+  async function uploadImage(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const response = await fetch("/api/upload-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              dataUrl: reader.result,
+              fileName: file.name,
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok || !result?.url) {
+            throw new Error(result?.message || "Image upload failed.");
+          }
+          setSelectedImage(result.url);
+          setImagePreview(result.url);
+          setForm((current) => ({
+            ...current,
+            imageUrls: result.url,
+          }));
+          onNotice("Image uploaded.");
+        } catch (error) {
+          onNotice(`Image upload failed: ${error.message}`);
+        } finally {
+          setUploading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      setUploading(false);
+      onNotice(`Image upload failed: ${error.message}`);
+    }
+  }
+
   return (
     <div className="admin-grid">
       <form className="editor" onSubmit={submit}>
-        <h2>Add Product</h2>
+        <h2>{isEditing ? "Edit Product" : "Add Product"}</h2>
         <input
           placeholder="Product name"
           required
@@ -115,22 +191,36 @@ export default function ProductAdmin({ products, categories, onRefresh, onNotice
           value={form.brandId}
           onChange={(event) => setForm({ ...form, brandId: event.target.value })}
         />
+        <label>
+          <span>Upload product image</span>
+          <input type="file" accept="image/*" onChange={uploadImage} />
+        </label>
+        {uploading && <div className="state small">Uploading image...</div>}
+        {imagePreview && <img src={imagePreview} alt="Preview" style={{ maxWidth: "100%", borderRadius: 8 }} />}
         <input
-          placeholder="Image URLs comma separated"
+          placeholder="Image URL or uploaded path"
           value={form.imageUrls}
           onChange={(event) => setForm({ ...form, imageUrls: event.target.value })}
         />
-        <button className="primary full" type="submit">
-          Create Product
-        </button>
+        <div className="two-col">
+          <button className="primary full" type="submit">
+            {isEditing ? "Update Product" : "Create Product"}
+          </button>
+          <button className="secondary full" type="button" onClick={resetForm}>
+            Reset
+          </button>
+        </div>
       </form>
       <DataTable
-        columns={["Name", "Category", "Price", "Stock"]}
+        columns={["Name", "Category", "Price", "Stock", "Action"]}
         rows={products.map((product) => [
           product.name,
           product.categoryName,
           currency(product.price),
           product.variants?.[0]?.availableStock ?? "-",
+          <button key={product.id} type="button" onClick={() => startEdit(product)}>
+            Edit
+          </button>,
         ])}
         empty="No products."
       />

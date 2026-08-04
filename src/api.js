@@ -127,6 +127,25 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  addresses: () => request("/api/v1/addresses"),
+  createAddress: (payload) =>
+    request("/api/v1/addresses", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateAddress: (id, payload) =>
+    request(`/api/v1/addresses/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  deleteAddress: (id) =>
+    request(`/api/v1/addresses/${id}`, {
+      method: "DELETE",
+    }),
+  countries: () =>
+    request("/api/v1/countries?pageNumber=1&pageSize=100").then(
+      (result) => result?.items || result?.data?.items || []
+    ),
   updateOrderStatus: (id, status) =>
     request(`/api/v1/orders/${id}/status`, {
       method: "PUT",

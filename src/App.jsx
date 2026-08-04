@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, clearAuth, getSavedAuth, saveAuth } from "./api";
 import AdminPanel from "./components/admin/AdminPanel";
+import AddressBook from "./components/AddressBook";
+import AddressForm from "./components/AddressForm";
 import CartDrawer from "./components/CartDrawer";
+import Footer from "./components/Footer";
 import Header from "./components/Header";
 import Notice from "./components/Notice";
 import OrdersPanel from "./components/OrdersPanel";
@@ -37,6 +40,10 @@ export default function App() {
   const [categories, setCategories] = useState([]);
   const [cart, setCart] = useState(emptyCart);
   const [orders, setOrders] = useState({ items: [] });
+  const [addresses, setAddresses] = useState([]);
+  const [selectedShippingAddressId, setSelectedShippingAddressId] = useState("");
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
   const [filters, setFilters] = useState({ Search: "", CategoryId: "" });
   const [notice, setNotice] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -67,12 +74,42 @@ export default function App() {
   }
 
   async function loadPrivateData() {
-    if (!auth) return;
+    if (!auth) {
+      setAddresses([]);
+      setSelectedShippingAddressId("");
+      setLoadingAddresses(false);
+      return;
+    }
 
-    const nextOrders = await api.myOrders().catch(() => ({ items: [] }));
-    const nextCart = await api.cart().catch(() => emptyCart);
+    const pendingCheckoutAtStart = pendingCheckout;
+    setLoadingAddresses(true);
+    const [nextOrders, nextCart, nextAddresses] = await Promise.all([
+      api.myOrders().catch(() => ({ items: [] })),
+      api.cart().catch(() => emptyCart),
+      api.addresses().catch(() => []),
+    ]);
+
+    const addressesResult = nextAddresses || [];
+    const defaultShipping =
+      addressesResult.find((address) => address.isDefaultShipping) || addressesResult[0] || null;
+
     setOrders(nextOrders || { items: [] });
     setCart(nextCart || emptyCart);
+    setAddresses(addressesResult);
+    setSelectedShippingAddressId(defaultShipping?.id || "");
+    setLoadingAddresses(false);
+
+    if (pendingCheckoutAtStart) {
+      setPendingCheckout(false);
+
+      if (defaultShipping) {
+        doCheckout(defaultShipping.id);
+        return;
+      }
+
+      setNotice("No saved shipping address found. Please add one before checkout.");
+      setView("address");
+    }
   }
 
   useEffect(() => {
@@ -148,24 +185,101 @@ export default function App() {
     setAuth(null);
     setCart(emptyCart);
     setOrders({ items: [] });
+    setAddresses([]);
+    setSelectedShippingAddressId("");
     setView("store");
+  }
+
+  function toAddressPayload(address, overrides = {}) {
+    return {
+      fullName: address.fullName,
+      phoneNumber: address.phoneNumber,
+      addressLine1: address.addressLine1,
+      addressLine2: address.addressLine2,
+      city: address.city,
+      state: address.state,
+      postalCode: address.postalCode,
+      countryId: address.countryId,
+      isDefaultShipping: Boolean(address.isDefaultShipping),
+      isDefaultBilling: Boolean(address.isDefaultBilling),
+      type: address.type || 2,
+      ...overrides,
+    };
+  }
+
+  async function doCheckout(shippingAddressId) {
+    try {
+      const order = await api.checkout({
+        shippingAddressId,
+        billingAddressId: null,
+        couponCode: null,
+        paymentMethod: "Offline",
+      });
+
+      setCart(emptyCart);
+      setOrders((current) => ({ items: [order, ...(current.items || [])] }));
+      setView("orders");
+      setNotice(`Order ${order.orderNumber} created successfully.`);
+    } catch (error) {
+      setNotice(`Checkout failed: ${error.message}`);
+      if (error.message.toLowerCase().includes("invalid shipping address")) {
+        loadPrivateData();
+        setView("address");
+      }
+    }
   }
 
   function handleCheckout() {
     if (!auth) {
       setNotice("Please log in before proceeding to checkout.");
+      setPendingCheckout(true);
       setView("login");
       return;
     }
 
-    setNotice(
-      "You are logged in. Add a saved shipping address in CommerceCore to complete checkout."
-    );
+    if (loadingAddresses) {
+      setNotice("Loading saved addresses, please wait...");
+      return;
+    }
+
+    if (addresses.length > 0) {
+      const selectedAddress =
+        addresses.find((address) => address.id === selectedShippingAddressId) ||
+        addresses.find((address) => address.isDefaultShipping) ||
+        addresses[0];
+      doCheckout(selectedAddress.id);
+      return;
+    }
+
+    setNotice("No saved shipping address found. Please add one before checkout.");
+    setPendingCheckout(true);
+    setView("address");
   }
 
   function refreshAll() {
     loadCatalog();
     loadPrivateData();
+  }
+
+  async function setDefaultAddress(address) {
+    try {
+      await api.updateAddress(address.id, toAddressPayload(address, { isDefaultShipping: true }));
+      await loadPrivateData();
+      setNotice("Default shipping address updated.");
+    } catch (error) {
+      setNotice(`Unable to update default address: ${error.message}`);
+    }
+  }
+
+  async function deleteAddress(addressId) {
+    try {
+      await api.deleteAddress(addressId);
+      setAddresses((current) => current.filter((item) => item.id !== addressId));
+      setSelectedShippingAddressId((current) => (current === addressId ? "" : current));
+      setNotice("Address removed.");
+    } catch (error) {
+      setNotice(`Unable to remove address: ${error.message}`);
+    }
   }
 
   return (
@@ -208,6 +322,36 @@ export default function App() {
 
       {view === "login" && <OtpLogin onLogin={handleLogin} />}
 
+      {view === "address" && (
+        <AddressForm
+          onCreated={(address) => {
+            setAddresses((current) => [address, ...(current || [])]);
+            setSelectedShippingAddressId(address.id);
+            setNotice("Shipping address saved. You can now proceed to checkout.");
+            if (pendingCheckout) {
+              setPendingCheckout(false);
+              doCheckout(address.id);
+              return;
+            }
+
+            setView("account");
+          }}
+          onCancel={() => setView(auth ? "account" : "store")}
+        />
+      )}
+
+      {view === "account" && (
+        <AddressBook
+          addresses={addresses}
+          loading={loadingAddresses}
+          selectedShippingAddressId={selectedShippingAddressId}
+          onSelect={setSelectedShippingAddressId}
+          onAddNew={() => setView("address")}
+          onSetDefault={setDefaultAddress}
+          onDelete={deleteAddress}
+        />
+      )}
+
       {view === "orders" && (
         <OrdersPanel orders={orders} onRefresh={loadPrivateData} />
       )}
@@ -223,14 +367,22 @@ export default function App() {
         />
       )}
 
+      <Footer />
+
       <CartDrawer
         open={drawerOpen}
         cart={cart}
         auth={auth}
+        addressesCount={addresses.length}
+        loadingAddresses={loadingAddresses}
         onClose={() => setDrawerOpen(false)}
         onLogin={() => {
           setDrawerOpen(false);
           setView("login");
+        }}
+        onManageAddress={() => {
+          setDrawerOpen(false);
+          setView("account");
         }}
         onCheckout={() => {
           setDrawerOpen(false);

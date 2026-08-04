@@ -34,7 +34,7 @@ export default function OtpLogin({ onLogin }) {
       <form className="auth-card" onSubmit={submit}>
         <ShieldCheck size={34} />
         <h1>Email OTP Login</h1>
-        <p>Use your CommerceCore email account to access cart, orders, and admin tools.</p>
+        <p>Use your TwoSoul email account to access cart, orders, and admin tools.</p>
         <label>
           Email
           <input

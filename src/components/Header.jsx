@@ -32,10 +32,9 @@ export default function Header({
         <button className="brand" type="button" onClick={() => onNavigate("store")}>
           <img
             className="brand-logo"
-            src="/images/brand/twosoul-logo.svg"
-            alt="TwoSoul logo"
+            src="/images/brand/LogoBigText.png"
+            alt="TwoSoul Perfume"
           />
-          <span className="brand-text">TwoSoul</span>
         </button>
         {mobileOpen && (
           <button

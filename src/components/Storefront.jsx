@@ -24,22 +24,35 @@ export default function Storefront({
 
   return (
     <main>
-      <section className="hero reveal">
-        <img src="/images/products/BlackCitrusImageCenter.png" alt="Luxury perfume bottles" />
+      {/* <section className="hero reveal">
+        <img src="/images/brand/hero-desktop.png" alt="Luxury perfume bottles" />
         <div className="hero-copy">
           <h1>TwoSoul Perfumes</h1>
           <span>Signature scents for elevated gifting and long-lasting daily wear.</span>
         </div>
-      </section>
+      </section> */}
+      <section className="hero reveal">
+  <picture>
+    <source
+      media="(max-width: 768px)"
+      srcSet="/images/brand/hero-mobile.png"
+    />
 
-      <section className="story-band reveal" aria-label="Brand highlights">
+    <img
+      src="/images/brand/hero-desktop.png"
+      alt="Luxury perfume bottles"
+    />
+  </picture>
+</section>
+
+      {/* <section className="story-band reveal" aria-label="Brand highlights">
         {highlights.map((item) => (
           <article key={item.label} className="story-tile">
             <p>{item.label}</p>
             <strong>{item.value}</strong>
           </article>
         ))}
-      </section>
+      </section> */}
 
       <section className="category-strip reveal" aria-label="Featured categories">
         {displayCategories.slice(0, 8).map((category) => (

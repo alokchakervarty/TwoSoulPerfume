@@ -90,6 +90,30 @@ async function requestWithFallback(paths, options = {}) {
   throw lastError || new Error("Request failed.");
 }
 
+async function uploadFile(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/files/upload`, {
+    method: "POST",
+    headers: {
+      ...authHeader(),
+      ...(STORE_ID ? { "X-Store-Id": STORE_ID } : {}),
+      ...(getGuestId() ? { "X-Guest-Id": getGuestId() } : {}),
+    },
+    body: formData,
+  });
+
+  const text = await response.text();
+  const body = text ? JSON.parse(text) : null;
+
+  if (!response.ok || body?.success === false) {
+    throw new Error(body?.message || `Upload failed with ${response.status}`);
+  }
+
+  return body?.data ?? body;
+}
+
 export const api = {
   products: (params = {}) => {
     const query = new URLSearchParams(
@@ -207,5 +231,6 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ status }),
     }),
+    uploadFile,
 };
 

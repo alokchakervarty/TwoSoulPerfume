@@ -84,47 +84,36 @@ export default function ProductAdmin({ products, categories, onRefresh, onNotice
     setImagePreview(product.image || "");
   }
 
-  async function uploadImage(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+async function uploadImage(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
 
-    setUploading(true);
+  setUploading(true);
 
-    try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const response = await fetch("/api/upload-image", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              dataUrl: reader.result,
-              fileName: file.name,
-            }),
-          });
-          const result = await response.json();
-          if (!response.ok || !result?.url) {
-            throw new Error(result?.message || "Image upload failed.");
-          }
-          setSelectedImage(result.url);
-          setImagePreview(result.url);
-          setForm((current) => ({
-            ...current,
-            imageUrls: result.url,
-          }));
-          onNotice("Image uploaded.");
-        } catch (error) {
-          onNotice(`Image upload failed: ${error.message}`);
-        } finally {
-          setUploading(false);
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      setUploading(false);
-      onNotice(`Image upload failed: ${error.message}`);
+  try {
+    const result = await api.uploadFile(file);
+    const uploadedUrl = result?.url || result?.data?.url;
+
+    if (!uploadedUrl) {
+      throw new Error("Upload succeeded but returned no URL.");
     }
+
+    setSelectedImage(uploadedUrl);
+    setImagePreview(uploadedUrl);
+    setForm((current) => ({
+      ...current,
+      imageUrls: uploadedUrl,
+    }));
+
+    onNotice("Image uploaded.");
+  } catch (error) {
+    onNotice(`Image upload failed: ${error.message}`);
+  } finally {
+    setUploading(false);
   }
+}
+
+ 
 
   return (
     <div className="admin-grid">

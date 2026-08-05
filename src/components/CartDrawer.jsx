@@ -42,6 +42,10 @@ export default function CartDrawer({
   }
 
   function handleCheckout() {
+    handleCheckoutWithMethod("Razorpay");
+  }
+
+  function handleCheckoutWithMethod(paymentMethod) {
     if (!items.length) return;
     if (!auth) {
       onNotice("Please log in before proceeding to checkout.");
@@ -49,7 +53,7 @@ export default function CartDrawer({
       return;
     }
     if (onCheckout) {
-      onCheckout();
+      onCheckout(paymentMethod);
       return;
     }
     onNotice(
@@ -125,8 +129,18 @@ export default function CartDrawer({
         type="button"
         onClick={handleCheckout}
       >
-        {checkoutLabel()}
+        {auth ? "Pay Online" : checkoutLabel()}
       </button>
+      {auth && (
+        <button
+          className="secondary full"
+          disabled={!items.length}
+          type="button"
+          onClick={() => handleCheckoutWithMethod("COD")}
+        >
+          Cash on Delivery
+        </button>
+      )}
     </aside>
   );
 }

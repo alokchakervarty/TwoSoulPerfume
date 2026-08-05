@@ -65,10 +65,29 @@ async function request(path, options = {}) {
   const body = text ? JSON.parse(text) : null;
 
   if (!response.ok || body?.success === false) {
-    throw new Error(body?.message || `Request failed with ${response.status}`);
+    const error = new Error(body?.message || `Request failed with ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
 
   return body?.data ?? body;
+}
+
+async function requestWithFallback(paths, options = {}) {
+  let lastError;
+
+  for (const path of paths) {
+    try {
+      return await request(path, options);
+    } catch (error) {
+      lastError = error;
+      if (error?.status !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error("Request failed.");
 }
 
 export const api = {
@@ -106,6 +125,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ identifier, channel: "Email", code }),
     }),
+  loginWithPassword: (email, password) =>
+    request("/api/v1/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+  register: (payload) =>
+    request("/api/v1/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   me: () => request("/api/v1/auth/me"),
   cart: () => request("/api/v1/cart"),
   addToCart: (productVariantId, quantity = 1) =>
@@ -127,7 +156,34 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  addresses: () => request("/api/v1/addresses"),
+  createRazorpayOrder: ({ amount, currency = "INR", receipt }) =>
+    requestWithFallback(
+      ["/api/create-order", "/api/v1/payments/create-order"],
+      {
+        method: "POST",
+        body: JSON.stringify({ amount, currency, receipt }),
+      }
+    ),
+  verifyRazorpayPayment: (payload) =>
+    requestWithFallback(
+      ["/api/verify-payment", "/api/v1/payments/verify-payment"],
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    ),
+  addresses: () =>
+    request("/api/v1/addresses").then((result) => {
+      const list = Array.isArray(result)
+        ? result
+        : Array.isArray(result?.items)
+          ? result.items
+          : Array.isArray(result?.data)
+            ? result.data
+            : [];
+
+      return list.filter((item) => item && item.id);
+    }),
   createAddress: (payload) =>
     request("/api/v1/addresses", {
       method: "POST",

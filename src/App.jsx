@@ -9,25 +9,75 @@ import Header from "./components/Header";
 import Notice from "./components/Notice";
 import OrdersPanel from "./components/OrdersPanel";
 import OtpLogin from "./components/OtpLogin";
+import PasswordLogin from "./components/PasswordLogin";
 import ProductDetail from "./components/ProductDetail";
 import Storefront from "./components/Storefront";
 import { emptyCart } from "./constants";
 import { normalizeProduct } from "./utils/products";
 
-function getInitialView() {
-  if (typeof window === "undefined") return "store";
+const RAZORPAY_SCRIPT_URL = "https://checkout.razorpay.com/v1/checkout.js";
+let razorpayScriptPromise;
 
-  const hash = window.location.hash;
+function loadRazorpayScript() {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.Razorpay) return Promise.resolve(true);
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+
+  razorpayScriptPromise = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = RAZORPAY_SCRIPT_URL;
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+  return razorpayScriptPromise;
+}
+
+const hashViewMap = {
+  "#/login": "login",
+  "#/account": "account",
+  "#/orders": "orders",
+  "#/admin": "admin",
+  "#/address": "address",
+  "#/password-login": "password-login",
+  "#/store": "store",
+};
+
+const viewHashMap = {
+  login: "#/login",
+  account: "#/account",
+  orders: "#/orders",
+  admin: "#/admin",
+  address: "#/address",
+  "password-login": "#/password-login",
+  store: "#/store",
+};
+
+function getViewFromHash(hash) {
+  if (!hash) return "store";
+
   if (hash.startsWith("#/product/")) {
     const productId = decodeURIComponent(hash.replace("#/product/", ""));
     return productId ? `product:${productId}` : "store";
   }
 
-  return "store";
+  return hashViewMap[hash] || "store";
+}
+
+function getInitialView() {
+  if (typeof window === "undefined") return "store";
+
+  return getViewFromHash(window.location.hash);
 }
 
 function getProductHash(productId) {
   return `#/product/${encodeURIComponent(productId)}`;
+}
+
+function isAuthError(error) {
+  return String(error?.message || "").includes("401");
 }
 
 export default function App() {
@@ -44,6 +94,7 @@ export default function App() {
   const [selectedShippingAddressId, setSelectedShippingAddressId] = useState("");
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [pendingCheckout, setPendingCheckout] = useState(false);
+  const [pendingPaymentMethod, setPendingPaymentMethod] = useState("Razorpay");
   const [filters, setFilters] = useState({ Search: "", CategoryId: "" });
   const [notice, setNotice] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -83,6 +134,21 @@ export default function App() {
 
     const pendingCheckoutAtStart = pendingCheckout;
     setLoadingAddresses(true);
+    const me = await api.me().catch((error) => error);
+    if (me instanceof Error && isAuthError(me)) {
+      clearAuth();
+      setAuth(null);
+      setCart(emptyCart);
+      setOrders({ items: [] });
+      setAddresses([]);
+      setSelectedShippingAddressId("");
+      setLoadingAddresses(false);
+      setPendingCheckout(false);
+      setNotice("Session expired. Please log in again.");
+      setView("login");
+      return;
+    }
+
     const [nextOrders, nextCart, nextAddresses] = await Promise.all([
       api.myOrders().catch(() => ({ items: [] })),
       api.cart().catch(() => emptyCart),
@@ -101,9 +167,15 @@ export default function App() {
 
     if (pendingCheckoutAtStart) {
       setPendingCheckout(false);
+      const checkoutPaymentMethod = pendingPaymentMethod || "Razorpay";
+      setPendingPaymentMethod("Razorpay");
 
       if (defaultShipping) {
-        doCheckout(defaultShipping.id);
+        if (checkoutPaymentMethod === "COD") {
+          doCheckout(defaultShipping.id, "Offline");
+        } else {
+          startRazorpayCheckout(defaultShipping.id);
+        }
         return;
       }
 
@@ -120,16 +192,7 @@ export default function App() {
     if (typeof window === "undefined") return undefined;
 
     function handleHashChange() {
-      const hash = window.location.hash;
-      if (hash.startsWith("#/product/")) {
-        const productId = decodeURIComponent(hash.replace("#/product/", ""));
-        if (productId) {
-          setView(`product:${productId}`);
-        }
-        return;
-      }
-
-      setView("store");
+      setView(getViewFromHash(window.location.hash));
     }
 
     window.addEventListener("hashchange", handleHashChange);
@@ -151,6 +214,12 @@ export default function App() {
       if (window.location.hash !== nextHash) {
         window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${nextHash}`);
       }
+      return;
+    }
+
+    const nextHash = viewHashMap[view];
+    if (nextHash && window.location.hash !== nextHash) {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${nextHash}`);
     }
   }, [view]);
 
@@ -202,18 +271,18 @@ export default function App() {
       countryId: address.countryId,
       isDefaultShipping: Boolean(address.isDefaultShipping),
       isDefaultBilling: Boolean(address.isDefaultBilling),
-      type: address.type || 2,
+      type: String(address.type || "2"),
       ...overrides,
     };
   }
 
-  async function doCheckout(shippingAddressId) {
+  async function doCheckout(shippingAddressId, paymentMethod = "Offline") {
     try {
       const order = await api.checkout({
         shippingAddressId,
         billingAddressId: null,
         couponCode: null,
-        paymentMethod: "Offline",
+        paymentMethod,
       });
 
       setCart(emptyCart);
@@ -229,31 +298,140 @@ export default function App() {
     }
   }
 
-  function handleCheckout() {
+  async function startRazorpayCheckout(shippingAddressId) {
+    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    if (!keyId) {
+      setNotice("Payment is not configured. Missing Razorpay key.");
+      return;
+    }
+
+    const amountPaise = Math.round(Number(cart.subTotal || 0) * 100);
+    if (amountPaise < 100) {
+      setNotice("Minimum payable amount is Rs 1.");
+      return;
+    }
+
+    try {
+      const order = await api.createRazorpayOrder({
+        amount: amountPaise,
+        currency: "INR",
+        receipt: `twosoul_${Date.now()}`,
+      });
+
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded || typeof window.Razorpay !== "function") {
+        setNotice("Unable to load payment gateway. Please try again.");
+        return;
+      }
+
+      const razorpay = new window.Razorpay({
+        key: keyId,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.order_id,
+        name: "TwoSoul Perfume",
+        description: "Order Payment",
+        method: {
+          upi: true,
+          card: true,
+          netbanking: true,
+          wallet: true,
+          emi: false,
+          paylater: false,
+        },
+        prefill: {
+          name: auth ? `${auth.firstName || ""} ${auth.lastName || ""}`.trim() : "",
+          email: auth?.email || "",
+        },
+        modal: {
+          ondismiss: () => {
+            setNotice("Payment cancelled by user.");
+          },
+        },
+        handler: async (response) => {
+          try {
+            await api.verifyRazorpayPayment(response);
+            await doCheckout(shippingAddressId, "Razorpay");
+          } catch (error) {
+            setNotice(`Payment verification failed: ${error.message}`);
+          }
+        },
+      });
+
+      razorpay.on("payment.failed", (event) => {
+        const reason =
+          event?.error?.description || event?.error?.reason || "Payment failed. Please try again.";
+        setNotice(reason);
+      });
+
+      razorpay.open();
+    } catch (error) {
+      if (String(error?.message || "").includes("401")) {
+        setNotice("Payment authentication failed on server. Please contact support.");
+        return;
+      }
+      setNotice(`Unable to start payment: ${error.message}`);
+    }
+  }
+
+  function handleCheckout(paymentMethod = "Razorpay") {
     if (!auth) {
       setNotice("Please log in before proceeding to checkout.");
       setPendingCheckout(true);
+      setPendingPaymentMethod(paymentMethod);
       setView("login");
       return;
     }
 
-    if (loadingAddresses) {
-      setNotice("Loading saved addresses, please wait...");
-      return;
-    }
+    const runCheckout = async () => {
+      if (loadingAddresses) {
+        setNotice("Loading saved addresses, please wait...");
+        return;
+      }
 
-    if (addresses.length > 0) {
-      const selectedAddress =
-        addresses.find((address) => address.id === selectedShippingAddressId) ||
-        addresses.find((address) => address.isDefaultShipping) ||
-        addresses[0];
-      doCheckout(selectedAddress.id);
-      return;
-    }
+      if (addresses.length > 0) {
+        const selectedAddress =
+          addresses.find((address) => address.id === selectedShippingAddressId) ||
+          addresses.find((address) => address.isDefaultShipping) ||
+          addresses[0];
+        if (paymentMethod === "COD") {
+          doCheckout(selectedAddress.id, "Offline");
+        } else {
+          startRazorpayCheckout(selectedAddress.id);
+        }
+        return;
+      }
 
-    setNotice("No saved shipping address found. Please add one before checkout.");
-    setPendingCheckout(true);
-    setView("address");
+      // If local state is empty, fetch fresh addresses before sending user to add new address.
+      setLoadingAddresses(true);
+      const latestAddresses = await api.addresses().catch(() => []);
+      setLoadingAddresses(false);
+
+      const normalizedAddresses = Array.isArray(latestAddresses) ? latestAddresses : [];
+      setAddresses(normalizedAddresses);
+
+      if (normalizedAddresses.length > 0) {
+        const selectedAddress =
+          normalizedAddresses.find((address) => address.id === selectedShippingAddressId) ||
+          normalizedAddresses.find((address) => address.isDefaultShipping) ||
+          normalizedAddresses[0];
+
+        setSelectedShippingAddressId(selectedAddress.id || "");
+        if (paymentMethod === "COD") {
+          doCheckout(selectedAddress.id, "Offline");
+        } else {
+          startRazorpayCheckout(selectedAddress.id);
+        }
+        return;
+      }
+
+      setNotice("No saved shipping address found. Please add one before checkout.");
+      setPendingCheckout(true);
+      setPendingPaymentMethod(paymentMethod);
+      setView("address");
+    };
+
+    runCheckout();
   }
 
   function refreshAll() {
@@ -320,7 +498,13 @@ export default function App() {
         />
       )}
 
-      {view === "login" && <OtpLogin onLogin={handleLogin} />}
+      {view === "login" && (
+        <OtpLogin onLogin={handleLogin} onPasswordLogin={() => setView("password-login")} />
+      )}
+
+      {view === "password-login" && (
+        <PasswordLogin onLogin={handleLogin} onBackToOtp={() => setView("login")} />
+      )}
 
       {view === "address" && (
         <AddressForm
@@ -330,7 +514,13 @@ export default function App() {
             setNotice("Shipping address saved. You can now proceed to checkout.");
             if (pendingCheckout) {
               setPendingCheckout(false);
-              doCheckout(address.id);
+              const checkoutPaymentMethod = pendingPaymentMethod || "Razorpay";
+              setPendingPaymentMethod("Razorpay");
+              if (checkoutPaymentMethod === "COD") {
+                doCheckout(address.id, "Offline");
+              } else {
+                startRazorpayCheckout(address.id);
+              }
               return;
             }
 
@@ -384,9 +574,9 @@ export default function App() {
           setDrawerOpen(false);
           setView("account");
         }}
-        onCheckout={() => {
+        onCheckout={(paymentMethod) => {
           setDrawerOpen(false);
-          handleCheckout();
+          handleCheckout(paymentMethod);
         }}
         onChanged={setCart}
         onNotice={setNotice}
